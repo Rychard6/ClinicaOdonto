@@ -1,36 +1,88 @@
 "use client";
 
-import React, { useState } from 'react';
-import axios from 'axios'; 
-import { useRouter } from 'next/router'; // Para redirecionamento
-import fundoLogin from '../../imagens/fundo.png';
+import React, { useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import fundoLogin from "../../imagens/fundo.png";
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
-    setErrorMessage('');
-
+    setErrorMessage("");
+  
+    console.log("Iniciando tentativa de login...");
+    console.log("Endpoint: http://localhost:3001/usuarios/login");
+    console.log("Email enviado:", email);
+  
     try {
-      const response = await axios.post('http://localhost:3000/usuarios/login', {
+      // Faz a chamada para a API de login
+      const response = await axios.post("http://localhost:3001/usuarios/login", {
         email,
         senha: password,
       });
+  
+      const { token, user } = response.data;
 
-      // Armazena o token no localStorage
-      const token = response.data.data.token;
-      localStorage.setItem('token', token);
-
-      // Redireciona para o dashboard
-      router.push('/dashboard');
-    } catch (error) {
-      setErrorMessage('Usuário ou senha inválidos.');
+      // Salva o token no localStorage para futuras autenticações
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("userId", user.id); // Salva o ID do usuário, se necessário
+      const role = user.papel?.toLowerCase();
+  
+      console.log("Token recebido:", token);
+      console.log("Usuário recebido:", user);
+  
+      if (!user || !user.papel || !user.id) {
+        throw new Error("Dados incompletos recebidos da API.");
+      }
+  
+      const papel = user.papel; // Obtém o papel
+      const id = user.id; // Obtém o ID
+  
+      console.log("Papel do usuário:", papel);
+      console.log("ID do usuário:", id);
+  
+      // Salva o token no localStorage para futuras autenticações
+      localStorage.setItem("token", token);
+  
+      // Normaliza o papel para letras minúsculas
+      const normalizedRole = papel.toLowerCase();
+  
+      console.log("Papel normalizado:", normalizedRole);
+  
+      // Redireciona com base no papel do usuário
+      if (normalizedRole === "cliente") {
+        console.log(`Redirecionando para: /dashboard/client/${id}`);
+        router.push(`/dashboard/client/${id}`);
+      } else if (normalizedRole === "administrador") {
+        console.log(`Redirecionando para: /dashboard/admin/${id}`);
+        router.push(`/dashboard/admin/${id}`);
+      } else if (normalizedRole === "secretaria") {
+        console.log(`Redirecionando para: /dashboard/secretary/${id}`);
+        router.push(`/dashboard/secretary/${id}`);
+      } else {
+        console.error("Papel do usuário inválido:", papel);
+        setErrorMessage("Função de usuário inválida.");
+      }
+    } catch (error: any) {
+      console.error("Erro ao tentar logar:", error);
+  
+      const status = error.response?.status;
+      console.log("Status do erro:", status);
+      console.log("Detalhes do erro:", error.response?.data);
+  
+      if (status === 401) {
+        setErrorMessage("Usuário ou senha inválidos.");
+      } else {
+        setErrorMessage("Erro ao conectar ao servidor. Tente novamente.");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,18 +123,25 @@ const Login: React.FC = () => {
             />
           </div>
           {errorMessage && (
-            <p className="text-red-500 text-sm text-center mb-4">{errorMessage}</p>
+            <p className="text-red-500 text-sm text-center mb-4">
+              {errorMessage}
+            </p>
           )}
           <button
             type="submit"
             className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors"
             disabled={loading}
           >
-            {loading ? 'Carregando...' : 'Entrar'}
+            {loading ? "Carregando..." : "Entrar"}
           </button>
         </form>
         <div className="mt-4 text-center">
-          <a href="/signup" className="text-blue-400 text-sm hover:underline">Não tem uma conta? Cadastre-se</a>
+          <a
+            href="/public/signup"
+            className="text-blue-400 text-sm hover:underline"
+          >
+            Não tem uma conta? Cadastre-se
+          </a>
         </div>
       </div>
     </div>

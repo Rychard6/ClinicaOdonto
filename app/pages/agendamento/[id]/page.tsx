@@ -1,19 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useSearchParams, useRouter } from "next/navigation";
 import { format, addDays, isToday } from "date-fns";
+import axios from "axios";
 
 const AppointmentBooking = () => {
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const { id } = router.query; 
+  const [isClient, setIsClient] = useState(false);
+  const [mountedId, setMountedId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [availableDates, setAvailableDates] = useState([]);
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
   const [availableTimes, setAvailableTimes] = useState([
     "08:00", "08:30", "09:00", "09:30", "10:00",
     "10:30", "11:00", "14:00", "14:30", "15:00", "15:30",
   ]);
-  const [selectedTime, setSelectedTime] = useState(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [doctorInfo, setDoctorInfo] = useState({
     name: "",
@@ -21,21 +24,34 @@ const AppointmentBooking = () => {
     description: "",
     imageUrl: "",
   });
+  const [storedDate, setStoredDate] = useState<string | null>(null);
+  const [specialty, setSpecialty] = useState("Odontologia");
+  const [userInfo, setUserInfo] = useState<any>(null); // Dados do usuário autenticado
 
-  const [storedDate, setStoredDate] = useState(null);
-
+  // Garante que o código roda no cliente
   useEffect(() => {
-    if (!id) return; // Aguarda até que o ID esteja disponível
+    setIsClient(true);
+  }, []);
 
-    // Busca informações do médico com base no ID
+  // Recupera o ID do médico pela URL
+  useEffect(() => {
+    if (isClient) {
+      const id = searchParams.get("id");
+      setMountedId(id);
+    }
+  }, [isClient, searchParams]);
+
+  // Busca as informações do médico e define as datas disponíveis
+  useEffect(() => {
+    if (!mountedId) return;
+
     const fetchDoctorInfo = async () => {
       try {
-        // Simulando uma API fictícia com o ID
-        const response = await fetch(`https://rickandmortyapi.com/api/character/${id}`);
+        const response = await fetch(`https://rickandmortyapi.com/api/character/${mountedId}`);
         const data = await response.json();
         setDoctorInfo({
           name: data.name || "Médico Desconhecido",
-          crm: `CRM: ${id} - Odontologia`,
+          crm: `CRM: ${mountedId} - ${specialty}`,
           description: "Especialista em tratamentos odontológicos.",
           imageUrl: data.image,
         });
@@ -46,22 +62,53 @@ const AppointmentBooking = () => {
 
     fetchDoctorInfo();
 
-    // Gerar os próximos 30 dias a partir de hoje
     const dates = Array.from({ length: 30 }, (_, i) => addDays(new Date(), i));
     setAvailableDates(dates);
-  }, [id]); // Dependência do ID da rota
+  }, [mountedId, specialty]);
 
-  const handleDateChange = (e) => {
+  // Verifica se o usuário está autenticado
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+    if (!token) {
+      router.push("/public/login");
+      return;
+    }
+
+    const fetchUserInfo = async () => {
+      try {
+        const response = await axios.get(`http://localhost:3001/usuarios/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setUserInfo(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar informações do usuário:", error.response?.data || error.message);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      router.push("/public/login");
+    }
+  };
+
+    fetchUserInfo();
+  }, [router]);
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedDate(e.target.value);
     setStoredDate(e.target.value);
   };
 
-  const handleTimeSelection = (time) => {
+  const handleTimeSelection = (time: string) => {
     if (selectedTime === time) {
       setSelectedTime(null);
     } else {
       setSelectedTime(time);
     }
+  };
+
+  const handleSpecialtyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSpecialty(e.target.value);
   };
 
   const handleAppointmentButtonClick = () => {
@@ -73,7 +120,7 @@ const AppointmentBooking = () => {
   };
 
   const confirmAppointment = () => {
-    console.log(`Consulta confirmada para ${storedDate} às ${selectedTime}`);
+    console.log(`Consulta confirmada para ${storedDate} às ${selectedTime} na especialidade ${specialty}`);
     setIsModalOpen(false);
   };
 
@@ -81,10 +128,21 @@ const AppointmentBooking = () => {
     setIsModalOpen(false);
   };
 
+  if (!isClient) {
+    return <div>Carregando...</div>;
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-gray-50 p-4 md:p-6">
       <div className="w-full max-w-3xl bg-white rounded-lg shadow-md p-6 md:p-8">
         <h1 className="text-2xl font-bold text-center mb-6 text-green-600">Agendar Consulta</h1>
+
+        {/* Informações do Usuário */}
+        {userInfo && (
+          <div className="text-right mb-4">
+            <p className="text-gray-700 text-sm">Bem-vindo, <strong>{userInfo.nome}</strong></p>
+          </div>
+        )}
 
         <div className="flex flex-col items-center">
           {/* Informações do Médico */}
@@ -105,22 +163,37 @@ const AppointmentBooking = () => {
             <p className="text-gray-600 italic mt-2">{doctorInfo.description}</p>
           </div>
 
-          {/* Formulário de Agendamento */}
+          {/* Seleção de Especialidade */}
           <div className="w-full">
-            <h3 className="text-lg font-medium text-gray-700 mb-3">Escolha a data e o horário da consulta</h3>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Data:</label>
+            <h3 className="text-lg font-medium text-gray-700 mb-3">Escolha a especialidade</h3>
+            <select
+              value={specialty}
+              onChange={handleSpecialtyChange}
+              className="w-full p-2 border rounded-md mb-4 focus:ring-2 focus:ring-green-500"
+            >
+              <option value="Odontologia">Odontologia</option>
+              <option value="Pediatria">Pediatria</option>
+              <option value="Cardiologia">Cardiologia</option>
+              <option value="Dermatologia">Dermatologia</option>
+            </select>
+          </div>
+
+          {/* Seleção de Data */}
+          <div className="w-full">
+            <h3 className="text-lg font-medium text-gray-700 mb-3">Escolha a data e o horário</h3>
             <select
               value={selectedDate}
               onChange={handleDateChange}
               className="w-full p-2 border rounded-md mb-4 focus:ring-2 focus:ring-green-500"
             >
               {availableDates.map((date) => (
-                <option key={date} value={format(date, "yyyy-MM-dd")}>
+                <option key={date.toISOString()} value={format(date, "yyyy-MM-dd")}>
                   {isToday(date) ? "Hoje" : format(date, "dd/MM/yyyy")}
                 </option>
               ))}
             </select>
 
+            {/* Seleção de Horários */}
             <div className="mt-4">
               <h4 className="text-md font-medium text-gray-700 mb-2">Horários Disponíveis</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -142,11 +215,7 @@ const AppointmentBooking = () => {
           </div>
         </div>
 
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-gray-700 mb-3">Local de Atendimento</h3>
-          <p className="text-gray-600">Clínica Odonto Brasília - SHIS QI 17, Lago Sul, Brasília - DF</p>
-        </div>
-
+        {/* Botão de Agendamento */}
         <div className="mt-6 flex justify-center">
           <button
             onClick={handleAppointmentButtonClick}
@@ -163,7 +232,8 @@ const AppointmentBooking = () => {
           <div className="bg-white w-80 md:w-96 p-6 rounded-lg shadow-lg">
             <h3 className="text-xl font-semibold mb-4 text-center">Confirmar Agendamento</h3>
             <p className="text-gray-700 text-center mb-6">
-              Você selecionou a data <strong>{storedDate && format(new Date(storedDate), "dd/MM/yyyy")}</strong> às <strong>{selectedTime}</strong>.
+              Você selecionou a data <strong>{storedDate && format(new Date(storedDate), "dd/MM/yyyy")}</strong> às{" "}
+              <strong>{selectedTime}</strong> na especialidade <strong>{specialty}</strong>.
             </p>
             <div className="flex justify-around mt-4">
               <button
