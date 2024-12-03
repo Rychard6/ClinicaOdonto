@@ -21,6 +21,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { updateUsuario } from "@/app/services/usuario";
 
 export default function Dashboard() {
   const params = useParams(); // Captura os parâmetros dinâmicos
@@ -39,6 +40,9 @@ export default function Dashboard() {
   const [isEditProfileOpen, setEditProfileOpen] = useState(false);
   const [isDetailsModalOpen, setDetailsModalOpen] = useState(false);
   const [appointmentDetails, setAppointmentDetails] = useState<Appointment | null>(null);
+  const [userName, setUserName] = useState("user.name");
+  const [userEmail, setUserEmail] = useState("user.email");
+  const [userPhone, setUserPhone] = useState("user.phone");
 
  
   // Função para buscar dados do cliente baseado no ID
@@ -66,6 +70,13 @@ export default function Dashboard() {
 
         const data = await response.json();
         console.log("Dados recebidos da API:", data);
+
+              // Atualiza os estados iniciais dos campos editáveis
+        setUserName(data.name || ""); // Nome
+        setUserPhone(data.phone || ""); // Telefone
+        setUserEmail(data.email || ""); // Email
+
+
 
         // Validação básica do formato de dados
         if (
@@ -138,6 +149,37 @@ export default function Dashboard() {
     const date = new Date(); // Cria um objeto Date para hoje
     date.setHours(hours - hoursToSubtract, minutes); // Ajusta o horário subtraindo as horas especificadas
     return date.toTimeString().slice(0, 5); // Retorna no formato HH:mm
+  }
+
+
+
+  const saveProfileChanges = async () => {
+    if (!ClientId || !userName || !userPhone) {
+      return;
+    }
+
+    try {
+      const updatedUser = await updateUsuario(ClientId, {
+        name: userName,
+        telefone: userPhone,
+      });
+      setUserData((prevState) => ({
+        ...prevState!,
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+      }));
+      setEditProfileOpen(false);
+    } catch (error: any) {
+      console.error("Erro ao atualizar perfil:", error.message);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="min-h-screen flex justify-center items-center">Carregando...</div>;
+  }
+
+  if (!userData) {
+    return <div className="min-h-screen flex justify-center items-center">Cliente não encontrado.</div>;
   }
 
   return (
@@ -250,25 +292,37 @@ export default function Dashboard() {
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
             <h2 className="text-2xl font-semibold mb-4">Editar Perfil</h2>
             <form className="space-y-4">
+              {/* Campo de Nome (editável) */}
               <input
                 type="text"
                 placeholder="Nome"
                 className="w-full p-3 border rounded-lg"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
               />
+
+              {/* Campo de Email (fixo e desabilitado) */}
               <input
                 type="email"
-                placeholder="Email"
-                className="w-full p-3 border rounded-lg"
+                className="w-full p-3 border rounded-lg bg-gray-200"
+                value={userEmail}
+                disabled
               />
+
+              {/* Campo de Telefone (editável) */}
               <input
                 type="tel"
                 placeholder="Telefone"
                 className="w-full p-3 border rounded-lg"
+                value={userPhone}
+                onChange={(e) => setUserPhone(e.target.value)}
               />
+
+              {/* Botão de Salvar */}
               <button
                 type="button"
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                onClick={closeEditProfileModal}
+                onClick={saveProfileChanges}
               >
                 Salvar Alterações
               </button>
@@ -276,6 +330,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
 
       {/* Appointment Details Modal */}
       {isDetailsModalOpen && (

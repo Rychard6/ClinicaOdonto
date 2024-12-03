@@ -21,6 +21,14 @@ interface HorariosIndisponiveisResponse {
   unavailableTimes: string[]; // Lista de horários ocupados (HH:mm)
 }
 
+interface Dentista {
+  id: number;
+  nome: string;
+  especializacao: string;
+  telefone: string;
+  email: string;
+}
+
 // Função para buscar todos os usuários
 export const getUsuarios = async (): Promise<Usuario[]> => {
   try {
@@ -95,5 +103,43 @@ export const agendarConsulta = async (agendamento: Agendamento): Promise<any> =>
     throw new Error(
       error.response?.data?.message || "Erro ao agendar a consulta."
     );
+  }
+};
+
+// Função para atualizar informações do usuário (nome e telefone)
+export const updateUsuario = async (
+  usuarioId: string,
+  updates: { name: string; telefone: string }
+): Promise<Usuario> => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Usuário não autenticado. Faça login novamente.");
+  }
+
+  try {
+    const response = await api.put<Usuario>(`/usuarios/${usuarioId}`, updates, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Erro ao atualizar informações do usuário:", error.message);
+    throw new Error(
+      error.response?.data?.message || "Erro ao atualizar as informações do usuário."
+    );
+  }
+
+};
+
+// Função para buscar todos os dentistas
+export const getDentistas = async (): Promise<Dentista[]> => {
+  try {
+    const response = await api.get("/dentistas");
+    return response.data;
+  } catch (error: any) {
+    console.error("Erro ao buscar dentistas:", error.message);
+    throw new Error("Não foi possível carregar os dentistas.");
   }
 };
