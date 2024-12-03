@@ -5,18 +5,20 @@ interface Usuario {
   id: string;
   name: string;
   email: string;
-  senha?: string;
+  senha?: string; // Senha é opcional no caso de não ser retornada pela API
 }
 
-// Interface para o agendamento de consultas
+// Interface para os dados do agendamento de consultas
 interface Agendamento {
-  date: string;      // Data da consulta (YYYY-MM-DD)
-  time: string;      // Hora da consulta (HH:mm)
-  specialty: string; // Especialidade selecionada
+  usuarioId: number;      // ID do usuário autenticado
+  especialidade: string;  // Especialidade da consulta
+  data: string;           // Data no formato ISO 8601 (YYYY-MM-DD)
+  dentistaId: number;     // ID do dentista
+  descricao?: string;     // Descrição opcional
 }
-
+// Interface para a resposta de horários indisponíveis
 interface HorariosIndisponiveisResponse {
-  unavailableTimes: string[];
+  unavailableTimes: string[]; // Lista de horários ocupados (HH:mm)
 }
 
 // Função para buscar todos os usuários
@@ -60,13 +62,13 @@ export const loginUsuario = async (
 // Função para buscar horários indisponíveis
 export const getHorariosIndisponiveis = async (
   date: string,
-  specialty: string
-): Promise<HorariosIndisponiveisResponse> => {
+  dentistaId: number
+): Promise<string[]> => {
   try {
-    const response = await api.get("/usuarios/horarios-indisponiveis", {
-      params: { date, specialty },
+    const response = await api.get("/agendamento/horarios-indisponiveis", {
+      params: { date, dentistaId },
     });
-    return response.data;
+    return response.data; // O backend já retorna um array de horários ocupados
   } catch (error: any) {
     console.error("Erro ao buscar horários indisponíveis:", error.message);
     throw new Error("Não foi possível carregar os horários indisponíveis.");
@@ -82,7 +84,7 @@ export const agendarConsulta = async (agendamento: Agendamento): Promise<any> =>
   }
 
   try {
-    const response = await api.post("/usuarios/agendar", agendamento, {
+    const response = await api.post("/agendamento", agendamento, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

@@ -3,6 +3,7 @@
 interface Appointment {
   date: string;
   time: string;
+  horario: string;
   specialty: string;
   notes?: string;
 }
@@ -178,7 +179,7 @@ export default function Dashboard() {
                     <strong>Data:</strong> {appointment.date}
                   </p>
                   <p>
-                    <strong>Horário:</strong> {appointment.time}
+                    <strong>Horário:</strong> {appointment.horario}
                   </p>
                   <p>
                     <strong>Especialidade:</strong> {appointment.specialty}

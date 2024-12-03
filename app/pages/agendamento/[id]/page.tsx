@@ -30,7 +30,27 @@ const AppointmentBooking = () => {
   const [storedDate, setStoredDate] = useState<string | null>(null);
   const [specialty, setSpecialty] = useState("Periodontia");
   const [userInfo, setUserInfo] = useState<any>(null);
-
+  const [dentistId, setDentistId] = useState<number | null>(null); // Novo estado para o dentista
+  
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    const userName = localStorage.getItem("userName");
+    const userEmail = localStorage.getItem("userEmail");
+    const userRole = localStorage.getItem("userRole");
+  
+    if (userId) {
+      setUserInfo({
+        id: parseInt(userId, 10), // Converta o ID para número
+        name: userName || "",
+        email: userEmail || "",
+        role: userRole || "CLIENTE",
+      });
+    } else {
+      console.error("Erro: Dados do usuário não encontrados no localStorage.");
+    }
+  }, []);
+  
+  
   // Garante que o código roda no cliente
   useEffect(() => {
     setIsClient(true);
@@ -44,19 +64,19 @@ const AppointmentBooking = () => {
   // Recupera horários indisponíveis para a data selecionada
   useEffect(() => {
     const fetchUnavailableTimes = async () => {
-      if (!selectedDate || !specialty) return;
+      if (!selectedDate || !dentistId) return;
   
       try {
-        const response = await getHorariosIndisponiveis(selectedDate, specialty);
-        console.log("Horários indisponíveis:", response);
-        setUnavailableTimes(response.unavailableTimes || []);
+        const response = await getHorariosIndisponiveis(selectedDate, dentistId);
+        setUnavailableTimes(response || []);
       } catch (error) {
         console.error("Erro ao buscar horários indisponíveis:", error);
       }
     };
   
     fetchUnavailableTimes();
-  }, [selectedDate, specialty]);
+  }, [selectedDate, dentistId]);
+  
 
 
   const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -70,8 +90,20 @@ const AppointmentBooking = () => {
   };
 
   const handleSpecialtyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSpecialty(e.target.value);
+    const selectedSpecialty = e.target.value;
+    setSpecialty(selectedSpecialty);
+  
+    // Mapear especialidade para o ID do dentista
+    const specialtyToDentistIdMap: Record<string, number> = {
+      Periodontia: 1,
+      Implantodontia: 2,
+      Endodontia: 3,
+      Odontopediatria: 4,
+    };
+  
+    setDentistId(specialtyToDentistIdMap[selectedSpecialty]);
   };
+  
 
   const handleAppointmentButtonClick = () => {
     if (!selectedTime || !selectedDate) {
@@ -81,22 +113,30 @@ const AppointmentBooking = () => {
     setIsModalOpen(true);
   };
 
+
   const confirmAppointment = async () => {
+    if (!userInfo || !dentistId) {
+      console.error("Dados do usuário ou dentista estão incompletos.");
+      console.log("Dados do usuário:", userInfo);
+      console.log("ID do dentista:", dentistId);
+      alert("Erro: Dados do usuário ou do dentista estão incompletos.");
+      return;
+    }
+  
     try {
-      const localDateTime = new Date(`${selectedDate}T${selectedTime}`);
-      const utcDateTime = new Date(
-        localDateTime.getTime() + localDateTime.getTimezoneOffset() * 60000
-      );
+      const agendamento = {
+        usuarioId: userInfo.id,
+        especialidade: specialty,
+        data: selectedDate,
+        dentistaId: dentistId,
+        descricao: "Consulta de rotina", // Pode ser personalizado
+        status: "PENDENTE",
+        horario: selectedTime,
+      };
   
-      // Log para depuração
-      console.log("Enviando agendamento:", {
-        date: utcDateTime.toISOString(),
-        time: selectedTime,
-        specialty,
-      });
+      console.log("Enviando agendamento:", agendamento);
   
-      // Chamada para agendarConsulta
-      await agendarConsulta({ date: utcDateTime.toISOString(), time: selectedTime, specialty });
+      await agendarConsulta(agendamento);
       alert("Consulta agendada com sucesso!");
       setIsModalOpen(false);
       setUnavailableTimes((prev) => [...prev, selectedTime]);
@@ -166,22 +206,24 @@ const AppointmentBooking = () => {
             <div className="mt-4">
               <h4 className="text-md font-medium text-gray-700 mb-2">Horários Disponíveis</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {availableTimes.map((time) => (
-                  <button
-                    key={time}
-                    className={`px-4 py-2 border rounded-md text-gray-700 ${
-                      unavailableTimes.includes(time)
-                        ? "bg-red-300 text-gray-500 cursor-not-allowed"
-                        : selectedTime === time
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-100 hover:bg-green-500 hover:text-white"
-                    }`}
-                    onClick={() => handleTimeSelection(time)}
-                    disabled={unavailableTimes.includes(time)}
-                  >
-                    {time}
-                  </button>
-                ))}
+              {availableTimes.map((time) => (
+                <button
+                  key={time}
+                  className={`px-4 py-2 border rounded-md text-gray-700 ${
+                    unavailableTimes.includes(time)
+                      ? "bg-red-300 text-gray-500 cursor-not-allowed"
+                      : selectedTime === time
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-100 hover:bg-green-500 hover:text-white"
+                  }`}
+                  onClick={() => handleTimeSelection(time)}
+                  disabled={unavailableTimes.includes(time)}
+                >
+                  {time}
+                </button>
+              ))}
+
+
               </div>
             </div>
           </div>

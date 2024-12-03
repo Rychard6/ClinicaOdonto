@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { FaBars, FaSignOutAlt, FaUser } from "react-icons/fa";
 import { useRouter } from "next/navigation"; // Para redirecionamento no Next.js
+import { FaGraduationCap } from "react-icons/fa6";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -87,6 +88,13 @@ export default function Navbar() {
               Perfil
             </li>
             <li
+              className="flex items-center p-2 text-teal-600 hover:bg-teal-100 cursor-pointer rounded-md"
+              onClick={() => window.location.href = "http://localhost:3000/pages/educacao"}
+            >
+              <FaGraduationCap className="mr-2" />
+              Educação
+            </li>
+            <li
               className="flex items-center p-2 text-red-500 hover:bg-red-100 cursor-pointer rounded-md"
               onClick={handleLogout}
             >
@@ -96,6 +104,7 @@ export default function Navbar() {
           </ul>
         </div>
       )}
+
     </nav>
   );
 }
