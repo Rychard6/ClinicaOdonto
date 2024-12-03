@@ -19,6 +19,8 @@ interface ClientData {
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function Dashboard() {
   const params = useParams(); // Captura os parâmetros dinâmicos
@@ -88,6 +90,14 @@ export default function Dashboard() {
     fetchData();
   }, [ClientId]);
 
+  const formatDate = (isoDate: string) => {
+    try {
+      return format(new Date(isoDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+    } catch {
+      return "Data inválida";
+    }
+  };
+
   const openEditProfileModal = () => {
     setEditProfileOpen(true);
   };
@@ -121,6 +131,14 @@ export default function Dashboard() {
   }
 
   console.log("Dados do cliente renderizados:", userData);
+
+
+  function adjustTimeByHours(time: string, hoursToSubtract: number): string {
+    const [hours, minutes] = time.split(":").map(Number); // Divide o horário em horas e minutos
+    const date = new Date(); // Cria um objeto Date para hoje
+    date.setHours(hours - hoursToSubtract, minutes); // Ajusta o horário subtraindo as horas especificadas
+    return date.toTimeString().slice(0, 5); // Retorna no formato HH:mm
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -176,10 +194,10 @@ export default function Dashboard() {
               userData.upcomingAppointments.map((appointment, index) => (
                 <li key={index} className="mb-4">
                   <p>
-                    <strong>Data:</strong> {appointment.date}
+                  <strong>Data:</strong> {formatDate(appointment.date)}
                   </p>
                   <p>
-                    <strong>Horário:</strong> {appointment.horario}
+                  <strong>Horário:</strong> {adjustTimeByHours(appointment.time, 13)}
                   </p>
                   <p>
                     <strong>Especialidade:</strong> {appointment.specialty}
