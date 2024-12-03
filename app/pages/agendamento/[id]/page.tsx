@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { format, addDays, isToday } from "date-fns";
 import axios from "axios";
+import Header from "../../../components/Header";
+import { getHorariosIndisponiveis, agendarConsulta } from "../../../services/usuario";
 
 const AppointmentBooking = () => {
   const searchParams = useSearchParams();
@@ -16,6 +18,7 @@ const AppointmentBooking = () => {
     "08:00", "08:30", "09:00", "09:30", "10:00",
     "10:30", "11:00", "14:00", "14:30", "15:00", "15:30",
   ]);
+  const [unavailableTimes, setUnavailableTimes] = useState<string[]>([]); // Lista de horários indisponíveis
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [doctorInfo, setDoctorInfo] = useState({
@@ -25,74 +28,36 @@ const AppointmentBooking = () => {
     imageUrl: "",
   });
   const [storedDate, setStoredDate] = useState<string | null>(null);
-  const [specialty, setSpecialty] = useState("Odontologia");
-  const [userInfo, setUserInfo] = useState<any>(null); // Dados do usuário autenticado
+  const [specialty, setSpecialty] = useState("Periodontia");
+  const [userInfo, setUserInfo] = useState<any>(null);
 
   // Garante que o código roda no cliente
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Recupera o ID do médico pela URL
   useEffect(() => {
-    if (isClient) {
-      const id = searchParams.get("id");
-      setMountedId(id);
-    }
-  }, [isClient, searchParams]);
-
-  // Busca as informações do médico e define as datas disponíveis
-  useEffect(() => {
-    if (!mountedId) return;
-
-    const fetchDoctorInfo = async () => {
-      try {
-        const response = await fetch(`https://rickandmortyapi.com/api/character/${mountedId}`);
-        const data = await response.json();
-        setDoctorInfo({
-          name: data.name || "Médico Desconhecido",
-          crm: `CRM: ${mountedId} - ${specialty}`,
-          description: "Especialista em tratamentos odontológicos.",
-          imageUrl: data.image,
-        });
-      } catch (error) {
-        console.error("Erro ao buscar informações do médico:", error);
-      }
-    };
-
-    fetchDoctorInfo();
-
     const dates = Array.from({ length: 30 }, (_, i) => addDays(new Date(), i));
     setAvailableDates(dates);
-  }, [mountedId, specialty]);
+  }, []);
 
-  // Verifica se o usuário está autenticado
+  // Recupera horários indisponíveis para a data selecionada
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userId");
-    if (!token) {
-      router.push("/public/login");
-      return;
-    }
-
-    const fetchUserInfo = async () => {
+    const fetchUnavailableTimes = async () => {
+      if (!selectedDate || !specialty) return;
+  
       try {
-        const response = await axios.get(`http://localhost:3001/usuarios/${userId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setUserInfo(response.data);
-    } catch (error) {
-      console.error("Erro ao buscar informações do usuário:", error.response?.data || error.message);
-      localStorage.removeItem("token");
-      localStorage.removeItem("userId");
-      router.push("/public/login");
-    }
-  };
+        const response = await getHorariosIndisponiveis(selectedDate, specialty);
+        console.log("Horários indisponíveis:", response);
+        setUnavailableTimes(response.unavailableTimes || []);
+      } catch (error) {
+        console.error("Erro ao buscar horários indisponíveis:", error);
+      }
+    };
+  
+    fetchUnavailableTimes();
+  }, [selectedDate, specialty]);
 
-    fetchUserInfo();
-  }, [router]);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedDate(e.target.value);
@@ -100,11 +65,8 @@ const AppointmentBooking = () => {
   };
 
   const handleTimeSelection = (time: string) => {
-    if (selectedTime === time) {
-      setSelectedTime(null);
-    } else {
-      setSelectedTime(time);
-    }
+    if (unavailableTimes.includes(time)) return; // Ignorar horários indisponíveis
+    setSelectedTime(time === selectedTime ? null : time);
   };
 
   const handleSpecialtyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -112,86 +74,93 @@ const AppointmentBooking = () => {
   };
 
   const handleAppointmentButtonClick = () => {
-    if (selectedTime) {
-      setIsModalOpen(true);
-    } else {
-      alert("Por favor, selecione um horário.");
+    if (!selectedTime || !selectedDate) {
+      alert("Por favor, selecione uma data e um horário.");
+      return;
     }
+    setIsModalOpen(true);
   };
 
-  const confirmAppointment = () => {
-    console.log(`Consulta confirmada para ${storedDate} às ${selectedTime} na especialidade ${specialty}`);
-    setIsModalOpen(false);
+  const confirmAppointment = async () => {
+    try {
+      const localDateTime = new Date(`${selectedDate}T${selectedTime}`);
+      const utcDateTime = new Date(
+        localDateTime.getTime() + localDateTime.getTimezoneOffset() * 60000
+      );
+  
+      // Log para depuração
+      console.log("Enviando agendamento:", {
+        date: utcDateTime.toISOString(),
+        time: selectedTime,
+        specialty,
+      });
+  
+      // Chamada para agendarConsulta
+      await agendarConsulta({ date: utcDateTime.toISOString(), time: selectedTime, specialty });
+      alert("Consulta agendada com sucesso!");
+      setIsModalOpen(false);
+      setUnavailableTimes((prev) => [...prev, selectedTime]);
+    } catch (error: any) {
+      console.error("Erro ao agendar consulta:", error.message || error);
+      alert(error.response?.data?.message || "Erro ao agendar consulta.");
+    }
   };
+  
 
   const cancelAppointment = () => {
     setIsModalOpen(false);
   };
 
-  if (!isClient) {
-    return <div>Carregando...</div>;
-  }
-
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-50 p-4 md:p-6">
-      <div className="w-full max-w-3xl bg-white rounded-lg shadow-md p-6 md:p-8">
-        <h1 className="text-2xl font-bold text-center mb-6 text-green-600">Agendar Consulta</h1>
+    <>
+      <Header />
+      <div className="min-h-screen flex flex-col items-center bg-gray-50 p-4 md:p-6">
+        <div className="w-full max-w-3xl bg-white rounded-lg shadow-md p-6 md:p-8">
+          <h1 className="text-2xl font-bold text-center mb-6 text-green-600">Agendar Consulta</h1>
 
-        {/* Informações do Usuário */}
-        {userInfo && (
-          <div className="text-right mb-4">
-            <p className="text-gray-700 text-sm">Bem-vindo, <strong>{userInfo.nome}</strong></p>
-          </div>
-        )}
+          {userInfo && (
+            <div className="w-full mb-6 bg-green-100 p-4 rounded-md shadow-sm text-center">
+              <p className="text-lg text-green-700">
+                Bem-vindo, <strong>{localStorage.getItem("userName") || "Visitante"}!</strong>
+              </p>
+              <p className="text-gray-600 text-sm">Pronto para agendar sua consulta?</p>
+            </div>
+          )}
 
-        <div className="flex flex-col items-center">
-          {/* Informações do Médico */}
-          <div className="flex flex-col items-center w-full text-center mb-6">
-            {doctorInfo.imageUrl ? (
-              <img
-                src={doctorInfo.imageUrl}
-                alt={doctorInfo.name}
-                className="w-24 h-24 md:w-32 md:h-32 rounded-full mb-4 shadow-lg"
-              />
-            ) : (
-              <div className="w-24 h-24 md:w-32 md:h-32 rounded-full mb-4 shadow-lg bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-500">Carregando...</span>
-              </div>
-            )}
-            <h2 className="text-lg md:text-xl font-semibold text-gray-800">{doctorInfo.name}</h2>
-            <p className="text-gray-600">{doctorInfo.crm}</p>
-            <p className="text-gray-600 italic mt-2">{doctorInfo.description}</p>
-          </div>
+          <div className="flex flex-col items-center">
+            {/* Seleção de Especialidade */}
+            <div className="w-full">
+              <h3 className="text-lg font-medium text-gray-700 mb-3">Escolha a especialidade</h3>
+              <select
+                value={specialty}
+                onChange={handleSpecialtyChange}
+                className="w-full p-2 border rounded-md mb-4 focus:ring-2 focus:ring-green-500"
+              >
+                <option value="Periodontia">Periodontia</option>
+                <option value="Implantodontia">Implantodontia</option>
+                <option value="Endodontia">Endodontia</option>
+                <option value="Odontopediatria">Odontopediatria</option>
+              </select>
+            </div>
 
-          {/* Seleção de Especialidade */}
-          <div className="w-full">
-            <h3 className="text-lg font-medium text-gray-700 mb-3">Escolha a especialidade</h3>
-            <select
-              value={specialty}
-              onChange={handleSpecialtyChange}
-              className="w-full p-2 border rounded-md mb-4 focus:ring-2 focus:ring-green-500"
-            >
-              <option value="Odontologia">Odontologia</option>
-              <option value="Pediatria">Pediatria</option>
-              <option value="Cardiologia">Cardiologia</option>
-              <option value="Dermatologia">Dermatologia</option>
-            </select>
-          </div>
-
-          {/* Seleção de Data */}
-          <div className="w-full">
-            <h3 className="text-lg font-medium text-gray-700 mb-3">Escolha a data e o horário</h3>
-            <select
-              value={selectedDate}
-              onChange={handleDateChange}
-              className="w-full p-2 border rounded-md mb-4 focus:ring-2 focus:ring-green-500"
-            >
-              {availableDates.map((date) => (
-                <option key={date.toISOString()} value={format(date, "yyyy-MM-dd")}>
-                  {isToday(date) ? "Hoje" : format(date, "dd/MM/yyyy")}
+            {/* Seleção de Data */}
+            <div className="relative">
+              <select
+                value={selectedDate}
+                onChange={handleDateChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white appearance-none"
+              >
+                <option disabled value="">
+                  Selecione uma data
                 </option>
-              ))}
-            </select>
+                {availableDates.map((date) => (
+                  <option key={date.toISOString()} value={format(date, "yyyy-MM-dd")}>
+                    {isToday(date) ? "Hoje" : format(date, "dd/MM/yyyy")}
+                  </option>
+                ))}
+              </select>
+              <span className="absolute right-3 top-3 text-gray-400">📅</span>
+            </div>
 
             {/* Seleção de Horários */}
             <div className="mt-4">
@@ -201,11 +170,14 @@ const AppointmentBooking = () => {
                   <button
                     key={time}
                     className={`px-4 py-2 border rounded-md text-gray-700 ${
-                      selectedTime === time
+                      unavailableTimes.includes(time)
+                        ? "bg-red-300 text-gray-500 cursor-not-allowed"
+                        : selectedTime === time
                         ? "bg-green-500 text-white"
                         : "bg-gray-100 hover:bg-green-500 hover:text-white"
-                    } transition`}
+                    }`}
                     onClick={() => handleTimeSelection(time)}
+                    disabled={unavailableTimes.includes(time)}
                   >
                     {time}
                   </button>
@@ -213,46 +185,47 @@ const AppointmentBooking = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Botão de Agendamento */}
-        <div className="mt-6 flex justify-center">
-          <button
-            onClick={handleAppointmentButtonClick}
-            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-          >
-            AGENDAR
-          </button>
-        </div>
-      </div>
-
-      {/* Modal de Confirmação */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white w-80 md:w-96 p-6 rounded-lg shadow-lg">
-            <h3 className="text-xl font-semibold mb-4 text-center">Confirmar Agendamento</h3>
-            <p className="text-gray-700 text-center mb-6">
-              Você selecionou a data <strong>{storedDate && format(new Date(storedDate), "dd/MM/yyyy")}</strong> às{" "}
-              <strong>{selectedTime}</strong> na especialidade <strong>{specialty}</strong>.
-            </p>
-            <div className="flex justify-around mt-4">
-              <button
-                onClick={confirmAppointment}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition"
-              >
-                Confirmar
-              </button>
-              <button
-                onClick={cancelAppointment}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
-              >
-                Cancelar
-              </button>
-            </div>
+          {/* Botão de Agendamento */}
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={handleAppointmentButtonClick}
+              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+            >
+              AGENDAR
+            </button>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Modal de Confirmação */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+            <div className="bg-white w-80 md:w-96 p-6 rounded-lg shadow-lg">
+              <h3 className="text-xl font-semibold mb-4 text-center">Confirmar Agendamento</h3>
+              <p className="text-gray-700 text-center mb-6">
+                Você selecionou a data <strong>{storedDate && format(new Date(`${storedDate}T00:00:00`), "dd/MM/yyyy")}</strong> às{" "}
+                <strong>{selectedTime}</strong> na especialidade <strong>{specialty}</strong>.
+              </p>
+
+              <div className="flex justify-around mt-4">
+                <button
+                  onClick={confirmAppointment}
+                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition"
+                >
+                  Confirmar
+                </button>
+                <button
+                  onClick={cancelAppointment}
+                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 

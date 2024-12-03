@@ -17,67 +17,50 @@ const Login: React.FC = () => {
     event.preventDefault();
     setLoading(true);
     setErrorMessage("");
-  
-    console.log("Iniciando tentativa de login...");
-    console.log("Endpoint: http://localhost:3001/usuarios/login");
-    console.log("Email enviado:", email);
-  
+
     try {
       // Faz a chamada para a API de login
       const response = await axios.post("http://localhost:3001/usuarios/login", {
         email,
         senha: password,
       });
-  
+
       const { token, user } = response.data;
 
-      // Salva o token no localStorage para futuras autenticações
-      localStorage.setItem("authToken", token);
-      localStorage.setItem("userId", user.id); // Salva o ID do usuário, se necessário
-      const role = user.papel?.toLowerCase();
-  
-      console.log("Token recebido:", token);
-      console.log("Usuário recebido:", user);
-  
       if (!user || !user.papel || !user.id) {
         throw new Error("Dados incompletos recebidos da API.");
       }
-  
-      const papel = user.papel; // Obtém o papel
-      const id = user.id; // Obtém o ID
-  
-      console.log("Papel do usuário:", papel);
-      console.log("ID do usuário:", id);
-  
-      // Salva o token no localStorage para futuras autenticações
-      localStorage.setItem("token", token);
-  
-      // Normaliza o papel para letras minúsculas
-      const normalizedRole = papel.toLowerCase();
-  
-      console.log("Papel normalizado:", normalizedRole);
-  
-      // Redireciona com base no papel do usuário
-      if (normalizedRole === "cliente") {
-        console.log(`Redirecionando para: /dashboard/client/${id}`);
-        router.push(`/dashboard/client/${id}`);
-      } else if (normalizedRole === "administrador") {
-        console.log(`Redirecionando para: /dashboard/admin/${id}`);
-        router.push(`/dashboard/admin/${id}`);
-      } else if (normalizedRole === "secretaria") {
-        console.log(`Redirecionando para: /dashboard/secretary/${id}`);
-        router.push(`/dashboard/secretary/${id}`);
+
+      // Salva o token e o ID no localStorage
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("userId", user.id);
+      localStorage.setItem("userRole", user.papel);
+      localStorage.setItem("userName", user.nome);
+      localStorage.setItem("userEmail", user.email);
+      localStorage.setItem("userPhone", user.telefone);
+      localStorage.setItem("userRegistrationDate", user.criadoEm);
+      localStorage.setItem("userAppointments", JSON.stringify(user.consultas));
+      localStorage.setItem("userSpecialties", JSON.stringify(user.especialidades));
+
+      // Normaliza o papel e redireciona
+      const role = user.papel.toLowerCase();
+      const userId = user.id;
+
+      const routes = {
+        cliente: `/dashboard/client/${userId}`,
+        administrador: `/dashboard/admin/${userId}`,
+        secretaria: `/dashboard/secretary/${userId}`,
+      };
+
+      if (routes[role]) {
+        router.push(routes[role]);
       } else {
-        console.error("Papel do usuário inválido:", papel);
         setErrorMessage("Função de usuário inválida.");
       }
     } catch (error: any) {
-      console.error("Erro ao tentar logar:", error);
-  
       const status = error.response?.status;
-      console.log("Status do erro:", status);
-      console.log("Detalhes do erro:", error.response?.data);
-  
+
       if (status === 401) {
         setErrorMessage("Usuário ou senha inválidos.");
       } else {

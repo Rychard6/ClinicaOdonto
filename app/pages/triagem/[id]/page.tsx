@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Header from "../../../components/Header";
 
 const ScreeningPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -34,6 +35,8 @@ const ScreeningPage: React.FC = () => {
   };
 
   return (
+    <>
+    <Header />
     <div className="flex flex-col items-center justify-center min-h-screen bg-green-50">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
         <h1 className="text-2xl font-semibold text-center mb-6 text-green-500">Triagem Odontológica</h1>
@@ -209,6 +212,7 @@ const ScreeningPage: React.FC = () => {
         </form>
       </div>
     </div>
+    </>
   );
 };
 

@@ -55,7 +55,7 @@ export default function IndexPage() {
   };
 
   const handleLoginClick = () => {
-    router.push('/login');
+    router.push('/public/login');
   };
 
   const handleMenuClick = (id: string) => {

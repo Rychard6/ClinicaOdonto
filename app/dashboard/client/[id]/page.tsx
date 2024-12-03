@@ -45,17 +45,26 @@ export default function Dashboard() {
 
       if (!token) {
         alert("Você precisa estar logado.");
-        router.push("/public/login");
+        router.push("/login");
         return;
       }
-
+      
       try {
-        const response = await fetch("http://localhost:3001/usuarios/1", {
-          headers: {
-            Authorization: `Bearer ${token}`, // Adiciona o token no cabeçalho
-          },
-        });
 
+        const response = await fetch(`http://localhost:3001/usuarios/${ClientId}`, {
+          method: 'GET',
+          credentials: 'include', // Inclui cookies na requisição
+        });      
+
+        if (!response.ok) {
+          console.error(`Erro na API: ${response.status} - ${response.statusText}`);
+          return;
+        }
+
+        const data = await response.json();
+        console.log("Dados recebidos da API:", data);
+
+        // Validação básica do formato de dados
         if (
           data &&
           typeof data.name === "string" &&

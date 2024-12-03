@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { Pie, Bar } from "react-chartjs-2";
+import Header from "../../../components/Header";
 import {
   Chart as ChartJS,
   ArcElement,
@@ -95,6 +96,8 @@ export default function SecretariaDashboard() {
   };
 
   return (
+    <>
+    <Header />
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Título e Filtro */}
       <div className="flex justify-between items-center mb-6">
@@ -247,5 +250,6 @@ export default function SecretariaDashboard() {
         </div>
       </div>
     </div>
+    </>
   );
 }

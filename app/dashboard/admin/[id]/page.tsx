@@ -1,5 +1,5 @@
 "use client";
-
+import Header from "../../../components/Header";
 import React, { useState } from "react";
 import { Bar } from "react-chartjs-2";
 import {
@@ -95,6 +95,8 @@ export default function SecretariasPage() {
     .sort((a, b) => b.consultas - a.consultas);
 
   return (
+    <>
+    <Header />
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Secretarias</h1>
@@ -208,5 +210,6 @@ export default function SecretariasPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
