@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Header from "../../../components/Header";
-import { getTriagemByUsuarioId, createTriagem, updateTriagem } from "../../../services/triagem";
+import { getTriagemByUsuarioId, createTriagem, updateTriagem, saveTriagem } from "../../../services/triagem";
 
 enum Prioridade {
   BAIXA = "BAIXA",
@@ -10,12 +10,8 @@ enum Prioridade {
 }
 
 const ScreeningPage: React.FC = () => {
-  const usuarioId = Number(localStorage.getItem('userId'));
-  console.log(usuarioId);
-  console.log("tipo", typeof usuarioId);
-
   const [formData, setFormData] = useState({
-    usuarioId: usuarioId,
+    usuarioId: 0,
     descricao: "",
     prioridade: Prioridade.ALTA,
     alergias: "",
@@ -45,10 +41,19 @@ const ScreeningPage: React.FC = () => {
   useEffect(() => {
     const fetchTriagem = async () => {
       try {
-        const usuarioId = Number(localStorage.getItem('userId'));
-        const triagem = await getTriagemByUsuarioId(usuarioId);
-        setFormData(triagem);
-        setTriagemId(triagem.id);
+        if (formData.usuarioId !== 0) {
+          const triagens = await getTriagemByUsuarioId(formData.usuarioId);
+          if (triagens.length > 0) {
+            const ultimaTriagem = triagens[triagens.length - 1];
+            console.log("Última triagem encontrada:", ultimaTriagem);
+            setFormData((prevFormData) => ({
+              ...prevFormData,
+              ...ultimaTriagem,
+              fumante: ultimaTriagem.fumante || false, // Certifique-se de que o valor de fumante é booleano
+            }));
+            setTriagemId(ultimaTriagem.id);
+          }
+        }
       } catch (error) {
         console.error("Erro ao buscar triagem:", error);
       }
@@ -61,19 +66,20 @@ const ScreeningPage: React.FC = () => {
     const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : (name === "idade" || name === "dor" ? Number(value) : value),
     });
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (triagemId) {
-        await updateTriagem(triagemId, formData);
-      } else {
-        const newTriagem = await createTriagem(formData);
-        setTriagemId(newTriagem.id);
-      }
+      const formattedData = {
+        ...formData,
+        ultimaVisita: formData.ultimaVisita ? `${formData.ultimaVisita}T00:00:00Z` : "",
+      };
+      console.log("Dados do formulário antes de salvar:", formattedData);
+      const savedTriagem = await saveTriagem(triagemId, formattedData);
+      setTriagemId(savedTriagem.id);
       setIsEditing(false);
     } catch (error) {
       console.error("Erro ao salvar triagem:", error);
@@ -89,7 +95,7 @@ const ScreeningPage: React.FC = () => {
       <Header />
       <div className="container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-4">Triagem</h1>
-        <form>
+        <form onSubmit={handleSave}>
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="descricao">
               Descrição
@@ -247,12 +253,13 @@ const ScreeningPage: React.FC = () => {
           </div>
           <div className="flex justify-between">
             <button
-              onClick={handleSave}
+              type="submit"
               className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
             >
               Salvar
             </button>
             <button
+              type="button"
               onClick={handleEdit}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
             >
