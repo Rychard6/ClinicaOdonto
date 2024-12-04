@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FaBars, FaSignOutAlt, FaUser } from "react-icons/fa";
+import { FaBars, FaSignOutAlt, FaStethoscope, FaUser } from "react-icons/fa";
 import { useRouter } from "next/navigation"; // Para redirecionamento no Next.js
 import { FaGraduationCap } from "react-icons/fa6";
 
@@ -54,6 +54,13 @@ export default function Navbar() {
     }
   };
 
+  const handleTriagem = () => {
+    const userId = localStorage.getItem("userId"); // Supondo que o ID do usuário está armazenado no localStorage
+    if (userId) {
+      router.push(`/pages/triagem/${userId}`);
+    }
+  };
+
   return (
     <nav className="bg-white shadow-md p-4 flex items-center justify-between max-w-screen-xl mx-auto">
       {/* Logo */}
@@ -94,6 +101,13 @@ export default function Navbar() {
               <FaGraduationCap className="mr-2" />
               Educação
             </li>
+            <button
+            onClick={handleTriagem}
+            className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 w-full"
+            > 
+              <FaStethoscope className="mr-2" />
+              Triagem
+            </button>
             <li
               className="flex items-center p-2 text-red-500 hover:bg-red-100 cursor-pointer rounded-md"
               onClick={handleLogout}

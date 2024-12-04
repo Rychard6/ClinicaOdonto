@@ -22,6 +22,7 @@ import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { updateUsuario } from "@/app/services/usuario";
+import  Header  from "../../../components/Header";
 
 export default function Dashboard() {
   const params = useParams(); // Captura os parâmetros dinâmicos
@@ -183,6 +184,8 @@ export default function Dashboard() {
   }
 
   return (
+    <>
+    <Header />
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
@@ -359,5 +362,6 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+    </>
   );
 }

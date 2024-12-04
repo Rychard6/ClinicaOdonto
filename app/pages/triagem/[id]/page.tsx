@@ -1,217 +1,266 @@
 "use client";
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../../components/Header";
+import { getTriagemByUsuarioId, createTriagem, updateTriagem } from "../../../services/triagem";
+
+enum Prioridade {
+  BAIXA = "BAIXA",
+  MEDIA = "MEDIA",
+  ALTA = "ALTA"
+}
 
 const ScreeningPage: React.FC = () => {
+  const usuarioId = Number(localStorage.getItem('userId'));
+  console.log(usuarioId);
+  console.log("tipo", typeof usuarioId);
+
   const [formData, setFormData] = useState({
-    name: "",
-    age: "",
-    gender: "",
-    email: "",
-    phone: "",
-    chiefComplaint: "",
-    painScale: "",
-    lastDentalVisit: "",
-    medicalConditions: "",
-    allergies: "",
-    medications: "",
-    smoking: "",
-    oralHygiene: "",
+    usuarioId: usuarioId,
+    descricao: "",
+    prioridade: Prioridade.ALTA,
+    alergias: "",
+    condicoesMedicas: "",
+    dor: 0,
+    frequenciaHigieneBucal: "",
+    fumante: false,
+    genero: "",
+    idade: 0,
+    medicacaoEmUso: "",
+    queixa: "",
+    ultimaVisita: "",
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const [triagemId, setTriagemId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const usuarioId = Number(localStorage.getItem('userId'));
+    if (usuarioId) {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        usuarioId: usuarioId,
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchTriagem = async () => {
+      try {
+        const usuarioId = Number(localStorage.getItem('userId'));
+        const triagem = await getTriagemByUsuarioId(usuarioId);
+        setFormData(triagem);
+        setTriagemId(triagem.id);
+      } catch (error) {
+        console.error("Erro ao buscar triagem:", error);
+      }
+    };
+
+    fetchTriagem();
+  }, [formData.usuarioId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui você pode adicionar a lógica para enviar os dados para o servidor
-    console.log("Form Data:", formData);
+    try {
+      if (triagemId) {
+        await updateTriagem(triagemId, formData);
+      } else {
+        const newTriagem = await createTriagem(formData);
+        setTriagemId(newTriagem.id);
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Erro ao salvar triagem:", error);
+    }
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
   };
 
   return (
     <>
-    <Header />
-    <div className="flex flex-col items-center justify-center min-h-screen bg-green-50">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
-        <h1 className="text-2xl font-semibold text-center mb-6 text-green-500">Triagem Odontológica</h1>
-        <form onSubmit={handleSubmit}>
+      <Header />
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Triagem</h1>
+        <form>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Nome Completo</label>
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="descricao">
+              Descrição
+            </label>
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              name="descricao"
+              value={formData.descricao || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-              required
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>
-
-          <div className="flex gap-4 mb-4">
-            <div className="w-1/2">
-              <label className="block text-sm font-medium text-gray-700">Idade</label>
-              <input
-                type="number"
-                name="age"
-                value={formData.age}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-            <div className="w-1/2">
-              <label className="block text-sm font-medium text-gray-700">Gênero</label>
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-                required
-              >
-                <option value="">Selecione</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Feminino">Feminino</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
-          </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="prioridade">
+              Prioridade
+            </label>
+            <select
+              name="prioridade"
+              value={formData.prioridade || Prioridade.ALTA}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-              required
-            />
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            >
+              <option value={Prioridade.ALTA}>Alta</option>
+              <option value={Prioridade.MEDIA}>Média</option>
+              <option value={Prioridade.BAIXA}>Baixa</option>
+            </select>
           </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Telefone</label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Qual é a sua principal queixa?</label>
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="alergias">
+              Alergias
+            </label>
             <textarea
-              name="chiefComplaint"
-              value={formData.chiefComplaint}
+              name="alergias"
+              value={formData.alergias || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-              required
-            ></textarea>
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
           </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Nível de dor (0 a 10)</label>
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="condicoesMedicas">
+              Condições Médicas
+            </label>
+            <textarea
+              name="condicoesMedicas"
+              value={formData.condicoesMedicas || ""}
+              onChange={handleChange}
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="dor">
+              Dor (0-10)
+            </label>
             <input
               type="number"
-              name="painScale"
-              min="0"
-              max="10"
-              value={formData.painScale}
+              name="dor"
+              value={formData.dor || 0}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Última visita ao dentista</label>
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="frequenciaHigieneBucal">
+              Frequência de Higiene Bucal
+            </label>
             <input
               type="text"
-              name="lastDentalVisit"
-              placeholder="Mês/Ano"
-              value={formData.lastDentalVisit}
+              name="frequenciaHigieneBucal"
+              value={formData.frequenciaHigieneBucal || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Condições médicas relevantes</label>
-            <textarea
-              name="medicalConditions"
-              value={formData.medicalConditions}
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="fumante">
+              Fumante
+            </label>
+            <input
+              type="checkbox"
+              name="fumante"
+              checked={formData.fumante || false}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-            ></textarea>
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
           </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Alergias</label>
-            <textarea
-              name="allergies"
-              value={formData.allergies}
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="genero">
+              Gênero
+            </label>
+            <input
+              type="text"
+              name="genero"
+              value={formData.genero || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-            ></textarea>
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
           </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Medicações em uso</label>
-            <textarea
-              name="medications"
-              value={formData.medications}
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="idade">
+              Idade
+            </label>
+            <input
+              type="number"
+              name="idade"
+              value={formData.idade || 0}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-            ></textarea>
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
           </div>
-
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Fumante?</label>
-            <select
-              name="smoking"
-              value={formData.smoking}
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="medicacaoEmUso">
+              Medicação em Uso
+            </label>
+            <textarea
+              name="medicacaoEmUso"
+              value={formData.medicacaoEmUso || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
-              required
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="queixa">
+              Queixa
+            </label>
+            <textarea
+              name="queixa"
+              value={formData.queixa || ""}
+              onChange={handleChange}
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="ultimaVisita">
+              Última Visita
+            </label>
+            <input
+              type="date"
+              name="ultimaVisita"
+              value={formData.ultimaVisita || ""}
+              onChange={handleChange}
+              disabled={!isEditing}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+          <div className="flex justify-between">
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
             >
-              <option value="">Selecione</option>
-              <option value="Sim">Sim</option>
-              <option value="Não">Não</option>
-            </select>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Frequência de higiene bucal</label>
-            <select
-              name="oralHygiene"
-              value={formData.oralHygiene}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-green-500"
+              Salvar
+            </button>
+            <button
+              onClick={handleEdit}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
             >
-              <option value="">Selecione</option>
-              <option value="Menos de uma vez por dia">Menos de uma vez por dia</option>
-              <option value="Uma vez por dia">Uma vez por dia</option>
-              <option value="Duas vezes por dia">Duas vezes por dia</option>
-              <option value="Três ou mais vezes por dia">Três ou mais vezes por dia</option>
-            </select>
+              Editar
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors"
-          >
-            Enviar
-          </button>
         </form>
       </div>
-    </div>
     </>
   );
 };
